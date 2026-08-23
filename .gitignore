@@ -9,33 +9,44 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# Native & Signing
 .kotlin/
 *.orig.*
 *.jks
 *.p8
 *.p12
 *.key
+*.keystore
 *.mobileprovision
 
 # Metro
 .metro-health-check*
 
-# debug
+# debug & logs
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
+android-build.log
 
 # macOS
 .DS_Store
 *.pem
 
-# local env files
+# local env & secrets
+.env
+.env.*
 .env*.local
 
 # typescript
 *.tsbuildinfo
 
+# IDE / local configs
+.vscode/
+.claude/
+.idea/
+
 # generated native folders
 /ios
 /android
+
