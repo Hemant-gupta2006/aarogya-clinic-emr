@@ -83,4 +83,24 @@ export async function savePatientImage(
   });
 }
 
+/**
+ * Saves a clinic or app logo image to local private storage.
+ */
+export async function saveClinicLogo(sourceUri: string): Promise<string> {
+  await ensureMediaDirectory();
+  const extension = sourceUri.split('.').pop()?.toLowerCase() || 'png';
+  const cleanExt = extension.includes('?') ? extension.split('?')[0] : extension;
+  const fileName = `clinic_logo_${Date.now()}.${cleanExt}`;
+  const relativePath = `${MEDIA_DIR_NAME}/${fileName}`;
+  const destinationUri = `${FileSystem.documentDirectory}${relativePath}`;
+
+  await FileSystem.copyAsync({
+    from: sourceUri,
+    to: destinationUri,
+  });
+
+  return relativePath;
+}
+
 export { getPatientPhotos, softDeletePatientPhoto };
+

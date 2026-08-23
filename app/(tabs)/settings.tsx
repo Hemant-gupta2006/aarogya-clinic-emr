@@ -11,8 +11,10 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import {
@@ -24,6 +26,7 @@ import {
 import { calculateStorageBreakdown, StorageBreakdown, formatBytes } from '../../src/services/storage.service';
 import { getAppSettings, setAppSetting, getMetadataValue } from '../../src/db/repositories/metadata.repo';
 import { generateAndShareMultiSheetXlsx, shareXlsxFile } from '../../src/services/xlsx.service';
+import { saveClinicLogo, getAbsolutePhotoUri } from '../../src/services/photo.service';
 import {
   Shield,
   Fingerprint,
@@ -39,6 +42,10 @@ import {
   AlertTriangle,
   FolderArchive,
   Save,
+  Camera,
+  Image as ImageIcon,
+  Trash2,
+  Sparkles,
 } from 'lucide-react-native';
 
 export default function SettingsScreen() {
@@ -51,12 +58,14 @@ export default function SettingsScreen() {
   const [lastBackup, setLastBackup] = useState<string | null>(null);
   const [lastBackupHash, setLastBackupHash] = useState<string | null>(null);
 
-  // Clinic profile modal
+  // Clinic & App profile modal
   const [clinicModalVisible, setClinicModalVisible] = useState(false);
   const [clinicName, setClinicName] = useState('Aarogya Clinic');
   const [doctorName, setDoctorName] = useState('Dr. Sharma');
   const [clinicPhone, setClinicPhone] = useState('');
   const [clinicAddress, setClinicAddress] = useState('');
+  const [clinicLogo, setClinicLogo] = useState<string | null>(null);
+  const [tempLogoUri, setTempLogoUri] = useState<string | null>(null);
 
   const loadSettingsData = useCallback(async () => {
     try {
@@ -80,6 +89,10 @@ export default function SettingsScreen() {
       if (settings.doctor_name) setDoctorName(settings.doctor_name);
       if (settings.clinic_phone) setClinicPhone(settings.clinic_phone);
       if (settings.clinic_address) setClinicAddress(settings.clinic_address);
+      if (settings.clinic_logo) {
+        setClinicLogo(settings.clinic_logo);
+        setTempLogoUri(settings.clinic_logo);
+      }
     } catch {
       // Error loading settings
     }
@@ -88,6 +101,47 @@ export default function SettingsScreen() {
   useEffect(() => {
     loadSettingsData();
   }, [loadSettingsData]);
+
+  const handlePickLogo = async (useCamera: boolean) => {
+    try {
+      let result: ImagePicker.ImagePickerResult;
+      if (useCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Required', 'Camera permission is required to take a logo picture.');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Required', 'Gallery permission is required to choose a logo.');
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+      }
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setTempLogoUri(result.assets[0].uri);
+      }
+    } catch (err: any) {
+      Alert.alert('Image Error', err?.message || 'Failed to select image');
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setTempLogoUri(null);
+  };
 
   const handleToggleBio = async (val: boolean) => {
     setBiometricOn(val);
@@ -105,12 +159,28 @@ export default function SettingsScreen() {
 
   const handleSaveClinicProfile = async () => {
     try {
+      let savedLogoPath = clinicLogo;
+      if (tempLogoUri !== clinicLogo) {
+        if (tempLogoUri) {
+          // If tempLogoUri is a new local URI (e.g. starts with file:// or content://)
+          if (!tempLogoUri.startsWith('media/')) {
+            savedLogoPath = await saveClinicLogo(tempLogoUri);
+          } else {
+            savedLogoPath = tempLogoUri;
+          }
+        } else {
+          savedLogoPath = '';
+        }
+      }
+
       await setAppSetting('clinic_name', clinicName);
       await setAppSetting('doctor_name', doctorName);
       await setAppSetting('clinic_phone', clinicPhone);
       await setAppSetting('clinic_address', clinicAddress);
+      await setAppSetting('clinic_logo', savedLogoPath || '');
+      setClinicLogo(savedLogoPath || null);
       setClinicModalVisible(false);
-      Alert.alert('Saved', 'Clinic profile updated successfully.');
+      Alert.alert('Saved', 'Clinic & app profile updated successfully.');
     } catch {
       Alert.alert('Error', 'Failed to save clinic profile.');
     }
@@ -130,14 +200,25 @@ export default function SettingsScreen() {
       {/* Clinic & Doctor Settings */}
       <Text style={styles.sectionHeader}>Clinic & Doctor Profile</Text>
       <View style={styles.card}>
-        <TouchableOpacity style={styles.rowItem} onPress={() => setClinicModalVisible(true)} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.rowItem}
+          onPress={() => {
+            setTempLogoUri(clinicLogo);
+            setClinicModalVisible(true);
+          }}
+          activeOpacity={0.7}
+        >
           <View style={styles.rowLeft}>
-            <View style={styles.iconCircle}>
-              <Building size={18} color={theme.colors.primaryDark} />
-            </View>
-            <View>
+            {clinicLogo ? (
+              <Image source={{ uri: getAbsolutePhotoUri(clinicLogo) }} style={styles.logoThumbnail} />
+            ) : (
+              <View style={styles.iconCircle}>
+                <Building size={18} color={theme.colors.primaryDark} />
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
               <Text style={styles.rowTitle}>{clinicName}</Text>
-              <Text style={styles.rowSubtitle}>{doctorName} • Tap to edit clinic info</Text>
+              <Text style={styles.rowSubtitle}>{doctorName} • Tap to edit clinic info & logo</Text>
             </View>
           </View>
           <ChevronRight size={18} color={theme.colors.textLight} />
@@ -289,83 +370,139 @@ export default function SettingsScreen() {
         <Text style={styles.lockNowText}>Lock Application Now</Text>
       </TouchableOpacity>
 
-      <Text style={styles.footerText}>
-        AarogyaEMR Mobile v1.0.0 • Offline-First Clinical Database
-      </Text>
+      <View style={styles.versionBadgeContainer}>
+        <View style={styles.versionPill}>
+          <Sparkles size={12} color={theme.colors.primaryDark} />
+          <Text style={styles.versionPillText}>Preview OTA Channel Active</Text>
+        </View>
+        <Text style={styles.footerText}>
+          AarogyaEMR Mobile v1.0.1 • Offline-First Clinical Workspace
+        </Text>
+      </View>
 
       {/* Bottom Spacer */}
       <View style={styles.bottomSpacer} />
 
-      {/* Clinic Profile Modal */}
+      {/* Clinic & Doctor Profile Modal */}
       <Modal visible={clinicModalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Clinic & Doctor Profile</Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScroll}>
+              <Text style={styles.modalTitle}>Edit Clinic & Doctor Profile</Text>
 
-            <View style={styles.modalInputGroup}>
-              <Text style={styles.modalInputLabel}>Clinic / Hospital Name</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={clinicName}
-                onChangeText={setClinicName}
-                placeholder="e.g. Aarogya Clinic"
-                placeholderTextColor={theme.colors.textLight}
-              />
-            </View>
+              {/* Logo Selection Section */}
+              <View style={styles.logoPickerSection}>
+                <View style={styles.logoPreviewWrapper}>
+                  {tempLogoUri ? (
+                    <Image
+                      source={{ uri: getAbsolutePhotoUri(tempLogoUri) }}
+                      style={styles.logoPreviewImage}
+                    />
+                  ) : (
+                    <View style={styles.logoPlaceholder}>
+                      <Building size={32} color={theme.colors.textMuted} />
+                      <Text style={styles.logoPlaceholderText}>No Logo</Text>
+                    </View>
+                  )}
+                </View>
 
-            <View style={styles.modalInputGroup}>
-              <Text style={styles.modalInputLabel}>Doctor Name & Qualifications</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={doctorName}
-                onChangeText={setDoctorName}
-                placeholder="e.g. Dr. Sharma, MBBS, MD (Physician)"
-                placeholderTextColor={theme.colors.textLight}
-              />
-            </View>
+                <View style={styles.logoActionButtons}>
+                  <TouchableOpacity
+                    style={styles.logoBtn}
+                    onPress={() => handlePickLogo(false)}
+                    activeOpacity={0.8}
+                  >
+                    <ImageIcon size={14} color={theme.colors.text} />
+                    <Text style={styles.logoBtnText}>Gallery</Text>
+                  </TouchableOpacity>
 
-            <View style={styles.modalInputGroup}>
-              <Text style={styles.modalInputLabel}>Clinic Contact Phone</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={clinicPhone}
-                onChangeText={setClinicPhone}
-                placeholder="e.g. +91 9876543210"
-                placeholderTextColor={theme.colors.textLight}
-                keyboardType="phone-pad"
-              />
-            </View>
+                  <TouchableOpacity
+                    style={styles.logoBtn}
+                    onPress={() => handlePickLogo(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Camera size={14} color={theme.colors.text} />
+                    <Text style={styles.logoBtnText}>Camera</Text>
+                  </TouchableOpacity>
 
-            <View style={styles.modalInputGroup}>
-              <Text style={styles.modalInputLabel}>Clinic Address / Header Subtitle</Text>
-              <TextInput
-                style={[styles.modalInput, { height: 60, textAlignVertical: 'top' }]}
-                value={clinicAddress}
-                onChangeText={setClinicAddress}
-                placeholder="e.g. Sector 14, Main Road, City"
-                placeholderTextColor={theme.colors.textLight}
-                multiline
-              />
-            </View>
+                  {tempLogoUri && (
+                    <TouchableOpacity
+                      style={[styles.logoBtn, styles.logoBtnDanger]}
+                      onPress={handleRemoveLogo}
+                      activeOpacity={0.8}
+                    >
+                      <Trash2 size={14} color={theme.colors.danger} />
+                      <Text style={[styles.logoBtnText, { color: theme.colors.danger }]}>Remove</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnCancel]}
-                onPress={() => setClinicModalVisible(false)}
-              >
-                <Text style={styles.modalBtnCancelText}>Cancel</Text>
-              </TouchableOpacity>
+              <View style={styles.modalInputGroup}>
+                <Text style={styles.modalInputLabel}>Clinic / App Name</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={clinicName}
+                  onChangeText={setClinicName}
+                  placeholder="e.g. Aarogya Clinic"
+                  placeholderTextColor={theme.colors.textLight}
+                />
+              </View>
 
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnSave]}
-                onPress={handleSaveClinicProfile}
-              >
-                <Text style={styles.modalBtnSaveText}>Save Profile</Text>
-              </TouchableOpacity>
-            </View>
+              <View style={styles.modalInputGroup}>
+                <Text style={styles.modalInputLabel}>Doctor Name & Qualifications</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={doctorName}
+                  onChangeText={setDoctorName}
+                  placeholder="e.g. Dr. Sharma, MBBS, MD (Physician)"
+                  placeholderTextColor={theme.colors.textLight}
+                />
+              </View>
+
+              <View style={styles.modalInputGroup}>
+                <Text style={styles.modalInputLabel}>Clinic Contact Phone</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={clinicPhone}
+                  onChangeText={setClinicPhone}
+                  placeholder="e.g. +91 9876543210"
+                  placeholderTextColor={theme.colors.textLight}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              <View style={styles.modalInputGroup}>
+                <Text style={styles.modalInputLabel}>Clinic Address / Header Subtitle</Text>
+                <TextInput
+                  style={[styles.modalInput, { height: 60, textAlignVertical: 'top' }]}
+                  value={clinicAddress}
+                  onChangeText={setClinicAddress}
+                  placeholder="e.g. Sector 14, Main Road, City"
+                  placeholderTextColor={theme.colors.textLight}
+                  multiline
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalBtnCancel]}
+                  onPress={() => setClinicModalVisible(false)}
+                >
+                  <Text style={styles.modalBtnCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalBtnSave]}
+                  onPress={handleSaveClinicProfile}
+                >
+                  <Text style={styles.modalBtnSaveText}>Save Profile</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -413,14 +550,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: theme.colors.primaryBg,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.cardBorderHighlight,
+  },
+  logoThumbnail: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.surface,
   },
   rowTitle: {
     fontSize: 14,
@@ -534,17 +679,37 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 14,
   },
+  versionBadgeContainer: {
+    alignItems: 'center',
+    marginTop: theme.spacing.lg,
+    gap: 6,
+  },
+  versionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.primaryBg,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorderHighlight,
+  },
+  versionPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.primaryDark,
+  },
   footerText: {
     fontSize: 11,
     color: theme.colors.textMuted,
     textAlign: 'center',
-    marginTop: theme.spacing.lg,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
   },
   modalContent: {
     backgroundColor: theme.colors.surface,
@@ -552,13 +717,75 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
+    maxHeight: '90%',
     ...theme.shadows.lg,
+  },
+  modalScroll: {
+    paddingBottom: 10,
   },
   modalTitle: {
     fontSize: 17,
     fontWeight: '800',
     color: theme.colors.text,
     marginBottom: theme.spacing.md,
+  },
+  logoPickerSection: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+    paddingVertical: 10,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+  },
+  logoPreviewWrapper: {
+    marginBottom: 10,
+  },
+  logoPreviewImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
+  },
+  logoPlaceholder: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoPlaceholderText: {
+    fontSize: 10,
+    color: theme.colors.textMuted,
+    marginTop: 2,
+  },
+  logoActionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  logoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+  },
+  logoBtnDanger: {
+    borderColor: theme.colors.dangerBorder,
+    backgroundColor: theme.colors.dangerBg,
+  },
+  logoBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.text,
   },
   modalInputGroup: {
     marginBottom: theme.spacing.md,
@@ -611,4 +838,5 @@ const styles = StyleSheet.create({
     height: 180,
   },
 });
+
 

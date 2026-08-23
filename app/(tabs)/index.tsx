@@ -51,7 +51,8 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [doctorName, setDoctorName] = useState('Dr. Ananya Sharma, MD');
-  const [clinicName, setClinicName] = useState('AarogyaEMR');
+  const [clinicName, setClinicName] = useState('Aarogya Clinic');
+  const [clinicLogo, setClinicLogo] = useState<string | null>(null);
   const [todayVisitsCount, setTodayVisitsCount] = useState(0);
   const [totalPatientsCount, setTotalPatientsCount] = useState(0);
   const [totalVisitsCount, setTotalVisitsCount] = useState(0);
@@ -65,6 +66,7 @@ export default function DashboardScreen() {
       const settings = await getAppSettings();
       if (settings.doctor_name) setDoctorName(settings.doctor_name);
       if (settings.clinic_name) setClinicName(settings.clinic_name);
+      if (settings.clinic_logo) setClinicLogo(settings.clinic_logo);
 
       // 2. Today's Visits Count
       const todayStr = new Date().toISOString().split('T')[0];
@@ -156,15 +158,26 @@ export default function DashboardScreen() {
     >
       {/* Top Clinic Brand & Greeting */}
       <View style={styles.topBrandRow}>
-        <View style={styles.brandTitleWrap}>
-          <View style={styles.brandLogoIcon}>
-            <Activity size={18} color="#FFFFFF" />
-          </View>
+        <TouchableOpacity
+          style={styles.brandTitleWrap}
+          onPress={() => router.push('/(tabs)/settings')}
+          activeOpacity={0.7}
+        >
+          {clinicLogo ? (
+            <Image
+              source={{ uri: getAbsolutePhotoUri(clinicLogo) }}
+              style={styles.brandLogoImage}
+            />
+          ) : (
+            <View style={styles.brandLogoIcon}>
+              <Activity size={18} color="#FFFFFF" />
+            </View>
+          )}
           <View>
-            <Text style={styles.brandName}>AarogyaEMR</Text>
-            <Text style={styles.brandSub}>CLINICAL RECORDS</Text>
+            <Text style={styles.brandName} numberOfLines={1}>{clinicName}</Text>
+            <Text style={styles.brandSub}>CLINICAL WORKSPACE</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.doctorBadge}
@@ -415,6 +428,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  brandLogoImage: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary,
   },
   brandName: {
     fontSize: 16,
