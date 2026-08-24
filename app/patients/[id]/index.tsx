@@ -11,6 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../../src/constants/theme';
 import { getPatientById, PatientWithMeta, softDeletePatient } from '../../../src/db/repositories/patient.repo';
 import { getPatientVisits, VisitWithDetails } from '../../../src/db/repositories/visit.repo';
@@ -46,6 +47,7 @@ import {
 export default function PatientProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [patient, setPatient] = useState<PatientWithMeta | null>(null);
   const [visits, setVisits] = useState<VisitWithDetails[]>([]);
@@ -196,7 +198,7 @@ export default function PatientProfileScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom + 40, theme.spacing.xxl) }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
       showsVerticalScrollIndicator={false}
     >
@@ -545,7 +547,7 @@ export default function PatientProfileScreen() {
       >
         <View style={styles.imageViewerOverlay}>
           <TouchableOpacity
-            style={styles.imageViewerCloseBtn}
+            style={[styles.imageViewerCloseBtn, { top: Math.max(insets.top, 24) }]}
             onPress={() => setPreviewPhotoUri(null)}
             activeOpacity={0.8}
           >

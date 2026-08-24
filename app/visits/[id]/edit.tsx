@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../../src/constants/theme';
 import { getVisitById, updateVisit, PrescriptionItemInput, VitalsData, VisitWithDetails } from '../../../src/db/repositories/visit.repo';
 import { getPatientById, PatientWithMeta } from '../../../src/db/repositories/patient.repo';
@@ -44,6 +45,7 @@ interface AttachedReportItem {
 export default function EditVisitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [visit, setVisit] = useState<VisitWithDetails | null>(null);
   const [patient, setPatient] = useState<PatientWithMeta | null>(null);
@@ -285,7 +287,7 @@ export default function EditVisitScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 80}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom + 80, 220) }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

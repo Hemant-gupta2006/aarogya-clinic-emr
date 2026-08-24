@@ -10,6 +10,7 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../src/constants/theme';
 import { searchPatients, PatientWithMeta } from '../../src/db/repositories/patient.repo';
 import { getAbsolutePhotoUri } from '../../src/services/photo.service';
@@ -17,6 +18,7 @@ import { Search, UserPlus, X, ChevronRight, Users, Clock, Phone, AlertCircle } f
 
 export default function PatientsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [patientList, setPatientList] = useState<PatientWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,7 +153,7 @@ export default function PatientsScreen() {
         data={patientList}
         keyExtractor={(item) => item.id}
         renderItem={renderPatientItem}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom + 30, theme.spacing.xxl) }]}
         initialNumToRender={10}
         maxToRenderPerBatch={10}
         windowSize={5}

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../src/constants/theme';
 import { createPatient } from '../../src/db/repositories/patient.repo';
 import { savePatientImage } from '../../src/services/photo.service';
@@ -34,6 +35,7 @@ const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
 export default function NewPatientScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -133,7 +135,7 @@ export default function NewPatientScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 40}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom + 60, 100) }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"

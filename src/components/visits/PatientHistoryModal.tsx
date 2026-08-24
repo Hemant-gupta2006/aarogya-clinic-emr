@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { theme } from '../../constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PatientWithMeta } from '../../db/repositories/patient.repo';
 import { VisitWithDetails } from '../../db/repositories/visit.repo';
 import { generateAndSharePrescriptionPdf } from '../../services/pdf.service';
@@ -32,6 +33,7 @@ export const PatientHistoryModal: React.FC<PatientHistoryModalProps> = ({
   onEditVisit,
   onNewFollowup,
 }) => {
+  const insets = useSafeAreaInsets();
   const handlePdf = async (visit: VisitWithDetails) => {
     try {
       await generateAndSharePrescriptionPdf(patient, visit);
@@ -49,7 +51,7 @@ export const PatientHistoryModal: React.FC<PatientHistoryModalProps> = ({
       onRequestClose={onClose}
     >
       <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
+        <View style={[styles.overlay, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}>
           <TouchableWithoutFeedback>
             <View style={styles.modalCard}>
               {/* Modal Header */}

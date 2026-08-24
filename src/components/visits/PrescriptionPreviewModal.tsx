@@ -12,6 +12,7 @@ import {
   Image,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../constants/theme';
 import { VisitWithDetails, VitalsData } from '../../db/repositories/visit.repo';
 import { PatientWithMeta } from '../../db/repositories/patient.repo';
@@ -55,6 +56,7 @@ export const PrescriptionPreviewModal: React.FC<PrescriptionPreviewModalProps> =
   clinicPhone: initialClinicPhone,
   doctorSignature: initialDoctorSignature,
 }) => {
+  const insets = useSafeAreaInsets();
   const [sharing, setSharing] = useState(false);
   const [clinicName, setClinicName] = useState(initialClinicName || 'Aarogya Clinic');
   const [doctorName, setDoctorName] = useState(initialDoctorName || 'Dr. Sharma');
@@ -292,7 +294,7 @@ export const PrescriptionPreviewModal: React.FC<PrescriptionPreviewModalProps> =
           </ScrollView>
 
           {/* Bottom Action CTAs */}
-          <View style={styles.bottomBar}>
+          <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.8}>
               <Text style={styles.cancelBtnText}>Close Preview</Text>
             </TouchableOpacity>
@@ -329,7 +331,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     borderTopLeftRadius: theme.borderRadius.xl,
     borderTopRightRadius: theme.borderRadius.xl,
-    height: '92%',
+    flex: 1,
+    maxHeight: '94%',
     paddingTop: theme.spacing.md,
   },
   topHeader: {

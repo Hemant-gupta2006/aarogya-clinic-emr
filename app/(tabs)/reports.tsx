@@ -10,6 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../src/constants/theme';
 import {
   getClinicalReport,
@@ -35,6 +36,7 @@ type DateFilterType = 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM' | 'ALL
 
 export default function ReportsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [filterType, setFilterType] = useState<DateFilterType>('TODAY');
   const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);
   const [report, setReport] = useState<ClinicalReportSummary | null>(null);
@@ -141,7 +143,7 @@ export default function ReportsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 30, 80) }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

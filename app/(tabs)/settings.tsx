@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import {
@@ -53,6 +54,7 @@ import {
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { lockApp } = useAuth();
 
   const [biometricOn, setBiometricOn] = useState(false);
@@ -288,7 +290,11 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom + 40, 80) }]}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Clinic & Doctor Settings */}
       <Text style={styles.sectionHeader}>Clinic & Doctor Profile</Text>
       <View style={styles.card}>
@@ -481,7 +487,7 @@ export default function SettingsScreen() {
       {/* Clinic & Doctor Profile Modal */}
       <Modal visible={clinicModalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.modalContent}>

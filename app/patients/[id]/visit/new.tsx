@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../../../src/constants/theme';
 import { getPatientById, PatientWithMeta } from '../../../../src/db/repositories/patient.repo';
 import { createVisit, PrescriptionItemInput, VitalsData } from '../../../../src/db/repositories/visit.repo';
@@ -38,13 +39,15 @@ const FREQUENCY_PRESETS = ['1-0-1 (After food)', '1-1-1', '1-0-0 (Morning)', '0-
 const DURATION_PRESETS = ['3 Days', '5 Days', '7 Days', '14 Days', '1 Month'];
 
 interface AttachedReportItem {
-  uri: string;
+  id: string;
   name: string;
+  uri: string;
 }
 
 export default function NewVisitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [patient, setPatient] = useState<PatientWithMeta | null>(null);
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split('T')[0]);
@@ -237,7 +240,7 @@ export default function NewVisitScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 80}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom + 80, 220) }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

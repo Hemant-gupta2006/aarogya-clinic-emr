@@ -7,11 +7,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../../src/context/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../src/constants/theme';
 import { Lock, Fingerprint, Delete, ShieldCheck } from 'lucide-react-native';
 
 export default function UnlockScreen() {
   const { unlockWithPin, unlockWithBiometrics, biometricActive } = useAuth();
+  const insets = useSafeAreaInsets();
   const [pin, setPin] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
@@ -58,7 +60,7 @@ export default function UnlockScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: Math.max(insets.top, theme.spacing.xl), paddingBottom: Math.max(insets.bottom, theme.spacing.lg) }]}>
       <View style={styles.header}>
         <View style={styles.iconCircle}>
           <ShieldCheck size={38} color={theme.colors.primaryDark} />

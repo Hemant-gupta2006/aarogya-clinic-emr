@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../src/constants/theme';
 import { verifyAndDecryptBackup, DecryptedBackupContent } from '../../src/backup/verifier';
 import { executeAtomicRestore, RestoreResult } from '../../src/backup/restore';
@@ -32,6 +33,7 @@ import {
 
 export default function RestoreBackupScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [selectedFileUri, setSelectedFileUri] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -50,17 +52,17 @@ export default function RestoreBackupScreen() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        setSelectedFileUri(asset.uri);
-        setSelectedFileName(asset.name);
+        const file = result.assets[0];
+        setSelectedFileUri(file.uri);
+        setSelectedFileName(file.name);
         setVerifiedContent(null);
       }
     } catch {
-      Alert.alert('Error', 'Failed to pick backup file.');
+      Alert.alert('File Picker Error', 'Failed to pick backup file.');
     }
   };
 
-  const handleVerifyBackup = async () => {
+  const handleVerifyPassword = async () => {
     if (!selectedFileUri) {
       Alert.alert('No File', 'Please select a .clinicbackup file first.');
       return;
@@ -72,10 +74,10 @@ export default function RestoreBackupScreen() {
 
     try {
       setVerifying(true);
-      const content = await verifyAndDecryptBackup(selectedFileUri, password);
-      setVerifiedContent(content);
+      const decrypted = await verifyAndDecryptBackup(selectedFileUri, password);
+      setVerifiedContent(decrypted);
     } catch (err: any) {
-      Alert.alert('Verification Failed', err.message || 'Incorrect password or invalid backup archive.');
+      Alert.alert('Decryption Failed', err.message || 'Incorrect password or corrupted file.');
     } finally {
       setVerifying(false);
     }
@@ -83,14 +85,13 @@ export default function RestoreBackupScreen() {
 
   const handlePerformRestore = async () => {
     if (!verifiedContent) return;
-
     try {
       setRestoring(true);
-      setConfirmModalVisible(false);
       const result = await executeAtomicRestore(verifiedContent);
+      setConfirmModalVisible(false);
       setRestoreSuccessResult(result);
     } catch (err: any) {
-      Alert.alert('Restore Failed', err.message || 'An error occurred during database restoration.');
+      Alert.alert('Restore Failed', err.message || 'Atomic restore encountered an unexpected error.');
     } finally {
       setRestoring(false);
     }
@@ -103,7 +104,7 @@ export default function RestoreBackupScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 60}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom + 40, theme.spacing.xxl) }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -263,7 +264,7 @@ export default function RestoreBackupScreen() {
 
       {/* Confirmation Modal */}
       <Modal visible={confirmModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}>
           <View style={styles.modalContent}>
             <ShieldAlert size={40} color={theme.colors.danger} style={{ alignSelf: 'center', marginBottom: 12 }} />
             <Text style={styles.modalTitle}>Confirm Data Restoration</Text>

@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../src/constants/theme';
 import { getDatabase } from '../../src/db/client';
 import { patients, visits, prescriptions, patientPhotos } from '../../src/db/schema';
@@ -34,6 +35,7 @@ import {
 
 export default function CreateBackupScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -120,7 +122,7 @@ export default function CreateBackupScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 60}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom + 40, theme.spacing.xxl) }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"

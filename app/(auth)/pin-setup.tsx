@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useAuth } from '../../src/context/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../src/constants/theme';
 import { checkBiometricHardware } from '../../src/security/biometric';
 import { setBiometricEnabled } from '../../src/security/pin';
@@ -18,6 +19,7 @@ import { ShieldCheck, Lock, Fingerprint } from 'lucide-react-native';
 
 export default function PinSetupScreen() {
   const { setupPin } = useAuth();
+  const insets = useSafeAreaInsets();
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [enableBio, setEnableBio] = useState(false);
@@ -64,7 +66,7 @@ export default function PinSetupScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { paddingTop: Math.max(insets.top, theme.spacing.lg), paddingBottom: Math.max(insets.bottom, theme.spacing.lg) }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.card}>
