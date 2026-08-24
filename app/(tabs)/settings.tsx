@@ -155,6 +155,28 @@ export default function SettingsScreen() {
     setTempSignatureUri(null);
   };
 
+  const handleOpenDrawPad = () => {
+    setClinicModalVisible(false);
+    setTimeout(() => {
+      setSignaturePadVisible(true);
+    }, 150);
+  };
+
+  const handleSaveDrawnSignature = (data: string) => {
+    setTempSignatureUri(data);
+    setSignaturePadVisible(false);
+    setTimeout(() => {
+      setClinicModalVisible(true);
+    }, 150);
+  };
+
+  const handleCloseDrawPad = () => {
+    setSignaturePadVisible(false);
+    setTimeout(() => {
+      setClinicModalVisible(true);
+    }, 150);
+  };
+
   const handlePickLogo = async (useCamera: boolean) => {
     try {
       let result: ImagePicker.ImagePickerResult;
@@ -610,7 +632,7 @@ export default function SettingsScreen() {
                   <View style={styles.signatureActionButtons}>
                     <TouchableOpacity
                       style={styles.logoBtn}
-                      onPress={() => setSignaturePadVisible(true)}
+                      onPress={handleOpenDrawPad}
                       activeOpacity={0.8}
                     >
                       <PenTool size={13} color={theme.colors.primaryDark} />
@@ -671,11 +693,12 @@ export default function SettingsScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Signature Pad Drawing Modal */}
+      {/* Full-Screen Signature Pad Drawing Modal */}
       <SignaturePadModal
         visible={signaturePadVisible}
-        onClose={() => setSignaturePadVisible(false)}
-        onSave={(data) => setTempSignatureUri(data)}
+        onClose={handleCloseDrawPad}
+        onSave={handleSaveDrawnSignature}
+        initialSignature={tempSignatureUri}
       />
     </ScrollView>
   );

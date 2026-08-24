@@ -7,7 +7,15 @@ import { getAbsolutePhotoUri } from './photo.service';
 
 function escapePdfText(text: string): string {
   if (!text) return '';
-  return String(text).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  const safeText = String(text)
+    .replace(/[₹]/g, 'Rs. ')
+    .replace(/[°]/g, ' deg ')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[—–]/g, '-')
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[^\x20-\x7E]/g, '');
+  return safeText.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 }
 
 function getUtf8ByteLength(str: string): number {
@@ -15,6 +23,26 @@ function getUtf8ByteLength(str: string): number {
     return new TextEncoder().encode(str).length;
   }
   return unescape(encodeURIComponent(str)).length;
+}
+
+function binaryStringToBase64(str: string): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let b64 = '';
+  let i = 0;
+  const len = str.length;
+  while (i < len) {
+    const b0 = str.charCodeAt(i++) & 0xff;
+    const b1 = i < len ? str.charCodeAt(i++) & 0xff : NaN;
+    const b2 = i < len ? str.charCodeAt(i++) & 0xff : NaN;
+
+    const n = (b0 << 16) | (isNaN(b1) ? 0 : b1 << 8) | (isNaN(b2) ? 0 : b2);
+
+    b64 += chars.charAt((n >> 18) & 63);
+    b64 += chars.charAt((n >> 12) & 63);
+    b64 += isNaN(b1) ? '=' : chars.charAt((n >> 6) & 63);
+    b64 += isNaN(b2) ? '=' : chars.charAt(n & 63);
+  }
+  return b64;
 }
 
 function base64ToBinaryString(b64: string): string {
@@ -510,9 +538,15 @@ export async function generateAndSharePrescriptionPdf(
   }
 
   const filePath = `${exportDir}Prescription_${patient.patientNumber}_${visit.visitDate}.pdf`;
-  await FileSystem.writeAsStringAsync(filePath, pdfBytes, {
-    encoding: FileSystem.EncodingType.UTF8,
+  const base64Data = binaryStringToBase64(pdfBytes);
+  await FileSystem.writeAsStringAsync(filePath, base64Data, {
+    encoding: FileSystem.EncodingType.Base64,
   });
+
+  const fileInfo = await FileSystem.getInfoAsync(filePath);
+  if (!fileInfo.exists || !('size' in fileInfo) || fileInfo.size === 0) {
+    throw new Error('Prescription PDF could not be saved to mobile storage.');
+  }
 
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {
@@ -554,9 +588,15 @@ export async function generateAndSharePatientHistoryPdf(
   }
 
   const filePath = `${exportDir}History_${patient.patientNumber}.pdf`;
-  await FileSystem.writeAsStringAsync(filePath, pdfBytes, {
-    encoding: FileSystem.EncodingType.UTF8,
+  const base64Data = binaryStringToBase64(pdfBytes);
+  await FileSystem.writeAsStringAsync(filePath, base64Data, {
+    encoding: FileSystem.EncodingType.Base64,
   });
+
+  const fileInfo = await FileSystem.getInfoAsync(filePath);
+  if (!fileInfo.exists || !('size' in fileInfo) || fileInfo.size === 0) {
+    throw new Error('Patient history PDF could not be saved to mobile storage.');
+  }
 
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {
