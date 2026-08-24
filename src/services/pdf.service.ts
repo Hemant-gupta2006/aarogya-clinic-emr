@@ -305,25 +305,6 @@ function buildPrescriptionPdfString(data: {
   return body + xref + trailer;
 }
 
-  let body = '%PDF-1.4\n';
-  const offsets = [0];
-
-  for (let i = 0; i < objects.length; i++) {
-    offsets.push(getUtf8ByteLength(body));
-    body += objects[i];
-  }
-
-  const startXref = getUtf8ByteLength(body);
-  let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  for (let i = 1; i <= objects.length; i++) {
-    xref += offsets[i].toString().padStart(10, '0') + ' 00000 n \n';
-  }
-
-  const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${startXref}\n%%EOF\n`;
-
-  return body + xref + trailer;
-}
-
 /**
  * Builds a pure standard PDF 1.4 binary string for multi-visit patient history.
  */
@@ -457,6 +438,11 @@ export async function generateAndSharePrescriptionPdf(
         const dims = getJpegDimensions(binary);
         photoData = { binary, width: dims.width, height: dims.height };
       }
+    } catch (photoErr) {
+      console.warn('Patient photo could not be attached to PDF:', photoErr);
+      photoData = null;
+    }
+  }
   // Load doctor signature if present
   let signatureImageData: { binary: string; width: number; height: number } | null = null;
   let signatureVectorData: { width: number; height: number; paths: Array<Array<{ x: number; y: number }>> } | null = null;
