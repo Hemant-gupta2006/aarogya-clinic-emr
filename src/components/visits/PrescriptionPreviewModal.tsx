@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,15 @@ import {
   Share,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { theme } from '../../constants/theme';
 import { VisitWithDetails, VitalsData } from '../../db/repositories/visit.repo';
 import { PatientWithMeta } from '../../db/repositories/patient.repo';
 import { generateAndSharePrescriptionPdf } from '../../services/pdf.service';
+import { getAppSettings } from '../../db/repositories/metadata.repo';
+import { getAbsolutePhotoUri } from '../../services/photo.service';
 import {
   X,
   Share2,
@@ -37,6 +41,7 @@ interface PrescriptionPreviewModalProps {
   doctorName?: string;
   clinicAddress?: string;
   clinicPhone?: string;
+  doctorSignature?: string;
 }
 
 export const PrescriptionPreviewModal: React.FC<PrescriptionPreviewModalProps> = ({
@@ -44,12 +49,30 @@ export const PrescriptionPreviewModal: React.FC<PrescriptionPreviewModalProps> =
   onClose,
   patient,
   visit,
-  clinicName = 'Aarogya Clinic',
-  doctorName = 'Dr. Ananya Sharma, MD',
-  clinicAddress = 'Consultant Physician & Surgeon',
-  clinicPhone = '+91 98765 43210',
+  clinicName: initialClinicName,
+  doctorName: initialDoctorName,
+  clinicAddress: initialClinicAddress,
+  clinicPhone: initialClinicPhone,
+  doctorSignature: initialDoctorSignature,
 }) => {
   const [sharing, setSharing] = useState(false);
+  const [clinicName, setClinicName] = useState(initialClinicName || 'Aarogya Clinic');
+  const [doctorName, setDoctorName] = useState(initialDoctorName || 'Dr. Sharma');
+  const [clinicAddress, setClinicAddress] = useState(initialClinicAddress || '');
+  const [clinicPhone, setClinicPhone] = useState(initialClinicPhone || '');
+  const [doctorSignature, setDoctorSignature] = useState<string | null>(initialDoctorSignature || null);
+
+  useEffect(() => {
+    if (visible) {
+      getAppSettings().then((settings) => {
+        if (!initialClinicName && settings.clinic_name) setClinicName(settings.clinic_name);
+        if (!initialDoctorName && settings.doctor_name) setDoctorName(settings.doctor_name);
+        if (!initialClinicAddress && settings.clinic_address) setClinicAddress(settings.clinic_address);
+        if (!initialClinicPhone && settings.clinic_phone) setClinicPhone(settings.clinic_phone);
+        if (!initialDoctorSignature && settings.doctor_signature) setDoctorSignature(settings.doctor_signature);
+      });
+    }
+  }, [visible, initialClinicName, initialDoctorName, initialClinicAddress, initialClinicPhone, initialDoctorSignature]);
 
   if (!visit || !patient) return null;
 
@@ -222,6 +245,41 @@ export const PrescriptionPreviewModal: React.FC<PrescriptionPreviewModalProps> =
 
               {/* Signature Block */}
               <View style={styles.signatureBlock}>
+                {doctorSignature ? (
+                  doctorSignature.startsWith('draw:') ? (
+                    <View style={styles.signatureSvgContainer}>
+                      {(() => {
+                        try {
+                          const parsed = JSON.parse(doctorSignature.substring(5));
+                          return (
+                            <Svg
+                              width={120}
+                              height={44}
+                              viewBox={`0 0 ${parsed.width || 320} ${parsed.height || 160}`}
+                            >
+                              <Path
+                                d={parsed.svg}
+                                stroke="#0F172A"
+                                strokeWidth={3}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                fill="none"
+                              />
+                            </Svg>
+                          );
+                        } catch {
+                          return null;
+                        }
+                      })()}
+                    </View>
+                  ) : (
+                    <Image
+                      source={{ uri: getAbsolutePhotoUri(doctorSignature) }}
+                      style={styles.signatureImage}
+                      resizeMode="contain"
+                    />
+                  )
+                ) : null}
                 <View style={styles.signatureLine} />
                 <Text style={styles.signDoctorName}>{doctorName}</Text>
                 <Text style={styles.signSubtitle}>Signature & Clinic Seal</Text>
@@ -506,8 +564,20 @@ const styles = StyleSheet.create({
   },
   signatureBlock: {
     alignItems: 'flex-end',
-    marginTop: 20,
+    marginTop: 16,
     marginBottom: 8,
+  },
+  signatureImage: {
+    width: 130,
+    height: 48,
+    marginBottom: 4,
+  },
+  signatureSvgContainer: {
+    width: 130,
+    height: 48,
+    marginBottom: 4,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   signatureLine: {
     width: 140,

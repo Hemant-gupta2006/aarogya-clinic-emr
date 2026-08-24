@@ -99,6 +99,22 @@ export async function saveClinicLogo(sourceUri: string): Promise<string> {
     to: destinationUri,
   });
 
+/**
+ * Saves a doctor signature image to local private storage.
+ */
+export async function saveDoctorSignature(sourceUri: string): Promise<string> {
+  await ensureMediaDirectory();
+  const extension = sourceUri.split('.').pop()?.toLowerCase() || 'jpg';
+  const cleanExt = extension.includes('?') ? extension.split('?')[0] : extension;
+  const fileName = `doctor_signature_${Date.now()}.${cleanExt}`;
+  const relativePath = `${MEDIA_DIR_NAME}/${fileName}`;
+  const destinationUri = `${FileSystem.documentDirectory}${relativePath}`;
+
+  await FileSystem.copyAsync({
+    from: sourceUri,
+    to: destinationUri,
+  });
+
   return relativePath;
 }
 

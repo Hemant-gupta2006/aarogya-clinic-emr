@@ -251,7 +251,7 @@ export default function ReportsScreen() {
             <TouchableOpacity
               key={v.visitId}
               style={styles.visitCard}
-              onPress={() => router.push(`/visits/${v.visitId}`)}
+              onPress={() => router.push(`/patients/${v.patientId}`)}
               activeOpacity={0.75}
             >
               <View style={styles.visitHeaderRow}>

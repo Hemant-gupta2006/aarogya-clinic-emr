@@ -528,14 +528,6 @@ export default function PatientProfileScreen() {
                       <FileText size={13} color="#FFFFFF" />
                       <Text style={styles.pdfActionBtnText}>Share PDF</Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.viewNoteDetailBtn}
-                      onPress={() => router.push(`/visits/${v.id}`)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.viewNoteDetailText}>Full Note</Text>
-                    </TouchableOpacity>
                   </View>
                 </View>
               </View>

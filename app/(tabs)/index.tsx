@@ -353,10 +353,10 @@ export default function DashboardScreen() {
 
                   <TouchableOpacity
                     style={styles.viewNoteBtn}
-                    onPress={() => router.push(`/visits/${item.visitId}`)}
+                    onPress={() => router.push(`/patients/${item.patient.id}`)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.viewNoteBtnText}>View Note</Text>
+                    <Text style={styles.viewNoteBtnText}>View Profile</Text>
                     <ArrowRight size={13} color={theme.colors.textSecondary} />
                   </TouchableOpacity>
                 </View>

@@ -26,7 +26,9 @@ import {
 import { calculateStorageBreakdown, StorageBreakdown, formatBytes } from '../../src/services/storage.service';
 import { getAppSettings, setAppSetting, getMetadataValue } from '../../src/db/repositories/metadata.repo';
 import { generateAndShareMultiSheetXlsx, shareXlsxFile } from '../../src/services/xlsx.service';
-import { saveClinicLogo, getAbsolutePhotoUri } from '../../src/services/photo.service';
+import { saveClinicLogo, saveDoctorSignature, getAbsolutePhotoUri } from '../../src/services/photo.service';
+import Svg, { Path } from 'react-native-svg';
+import { SignaturePadModal } from '../../src/components/common/SignaturePadModal';
 import {
   Shield,
   Fingerprint,
@@ -46,6 +48,7 @@ import {
   Image as ImageIcon,
   Trash2,
   Sparkles,
+  PenTool,
 } from 'lucide-react-native';
 
 export default function SettingsScreen() {
@@ -66,6 +69,11 @@ export default function SettingsScreen() {
   const [clinicAddress, setClinicAddress] = useState('');
   const [clinicLogo, setClinicLogo] = useState<string | null>(null);
   const [tempLogoUri, setTempLogoUri] = useState<string | null>(null);
+
+  // Doctor Signature
+  const [doctorSignature, setDoctorSignature] = useState<string | null>(null);
+  const [tempSignatureUri, setTempSignatureUri] = useState<string | null>(null);
+  const [signaturePadVisible, setSignaturePadVisible] = useState(false);
 
   const loadSettingsData = useCallback(async () => {
     try {
@@ -93,6 +101,10 @@ export default function SettingsScreen() {
         setClinicLogo(settings.clinic_logo);
         setTempLogoUri(settings.clinic_logo);
       }
+      if (settings.doctor_signature) {
+        setDoctorSignature(settings.doctor_signature);
+        setTempSignatureUri(settings.doctor_signature);
+      }
     } catch {
       // Error loading settings
     }
@@ -101,6 +113,47 @@ export default function SettingsScreen() {
   useEffect(() => {
     loadSettingsData();
   }, [loadSettingsData]);
+
+  const handlePickSignature = async (useCamera: boolean) => {
+    try {
+      let result: ImagePicker.ImagePickerResult;
+      if (useCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Required', 'Camera permission is required to capture signature.');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [2, 1],
+          quality: 0.8,
+        });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Required', 'Gallery permission is required to select signature image.');
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [2, 1],
+          quality: 0.8,
+        });
+      }
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setTempSignatureUri(result.assets[0].uri);
+      }
+    } catch (err: any) {
+      Alert.alert('Signature Error', err?.message || 'Failed to select signature image');
+    }
+  };
+
+  const handleRemoveSignature = () => {
+    setTempSignatureUri(null);
+  };
 
   const handlePickLogo = async (useCamera: boolean) => {
     try {
@@ -173,14 +226,31 @@ export default function SettingsScreen() {
         }
       }
 
+      let savedSigPath = doctorSignature;
+      if (tempSignatureUri !== doctorSignature) {
+        if (tempSignatureUri) {
+          if (tempSignatureUri.startsWith('draw:')) {
+            savedSigPath = tempSignatureUri;
+          } else if (!tempSignatureUri.startsWith('media/')) {
+            savedSigPath = await saveDoctorSignature(tempSignatureUri);
+          } else {
+            savedSigPath = tempSignatureUri;
+          }
+        } else {
+          savedSigPath = '';
+        }
+      }
+
       await setAppSetting('clinic_name', clinicName);
       await setAppSetting('doctor_name', doctorName);
       await setAppSetting('clinic_phone', clinicPhone);
       await setAppSetting('clinic_address', clinicAddress);
       await setAppSetting('clinic_logo', savedLogoPath || '');
+      await setAppSetting('doctor_signature', savedSigPath || '');
       setClinicLogo(savedLogoPath || null);
+      setDoctorSignature(savedSigPath || null);
       setClinicModalVisible(false);
-      Alert.alert('Saved', 'Clinic & app profile updated successfully.');
+      Alert.alert('Saved', 'Clinic & doctor profile updated successfully.');
     } catch {
       Alert.alert('Error', 'Failed to save clinic profile.');
     }
@@ -204,6 +274,7 @@ export default function SettingsScreen() {
           style={styles.rowItem}
           onPress={() => {
             setTempLogoUri(clinicLogo);
+            setTempSignatureUri(doctorSignature);
             setClinicModalVisible(true);
           }}
           activeOpacity={0.7}
@@ -218,7 +289,9 @@ export default function SettingsScreen() {
             )}
             <View style={{ flex: 1 }}>
               <Text style={styles.rowTitle}>{clinicName}</Text>
-              <Text style={styles.rowSubtitle}>{doctorName} • Tap to edit clinic info & logo</Text>
+              <Text style={styles.rowSubtitle}>
+                {doctorName} • {doctorSignature ? 'Signature Configured' : 'Tap to edit clinic info & signature'}
+              </Text>
             </View>
           </View>
           <ChevronRight size={18} color={theme.colors.textLight} />
@@ -487,6 +560,97 @@ export default function SettingsScreen() {
                 />
               </View>
 
+              {/* Doctor Digital Signature Section */}
+              <View style={styles.modalInputGroup}>
+                <Text style={styles.modalInputLabel}>Doctor's Digital Signature (Prescription Slip)</Text>
+                <View style={styles.signaturePickerSection}>
+                  <View style={styles.signaturePreviewWrapper}>
+                    {tempSignatureUri ? (
+                      tempSignatureUri.startsWith('draw:') ? (
+                        <View style={styles.signatureSvgWrapper}>
+                          {(() => {
+                            try {
+                              const parsed = JSON.parse(tempSignatureUri.substring(5));
+                              return (
+                                <Svg
+                                  width="100%"
+                                  height="100%"
+                                  viewBox={`0 0 ${parsed.width || 320} ${parsed.height || 160}`}
+                                >
+                                  <Path
+                                    d={parsed.svg}
+                                    stroke="#0F172A"
+                                    strokeWidth={3}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    fill="none"
+                                  />
+                                </Svg>
+                              );
+                            } catch {
+                              return <Text style={styles.logoPlaceholderText}>Signature Error</Text>;
+                            }
+                          })()}
+                        </View>
+                      ) : (
+                        <Image
+                          source={{ uri: getAbsolutePhotoUri(tempSignatureUri) }}
+                          style={styles.signaturePreviewImage}
+                          resizeMode="contain"
+                        />
+                      )
+                    ) : (
+                      <View style={styles.signaturePlaceholder}>
+                        <PenTool size={22} color={theme.colors.textMuted} />
+                        <Text style={styles.logoPlaceholderText}>No Signature Added</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.signatureActionButtons}>
+                    <TouchableOpacity
+                      style={styles.logoBtn}
+                      onPress={() => setSignaturePadVisible(true)}
+                      activeOpacity={0.8}
+                    >
+                      <PenTool size={13} color={theme.colors.primaryDark} />
+                      <Text style={[styles.logoBtnText, { color: theme.colors.primaryDark, fontWeight: '700' }]}>
+                        Draw
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.logoBtn}
+                      onPress={() => handlePickSignature(false)}
+                      activeOpacity={0.8}
+                    >
+                      <ImageIcon size={13} color={theme.colors.text} />
+                      <Text style={styles.logoBtnText}>Gallery</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.logoBtn}
+                      onPress={() => handlePickSignature(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Camera size={13} color={theme.colors.text} />
+                      <Text style={styles.logoBtnText}>Camera</Text>
+                    </TouchableOpacity>
+
+                    {tempSignatureUri && (
+                      <TouchableOpacity
+                        style={[styles.logoBtn, styles.logoBtnDanger]}
+                        onPress={handleRemoveSignature}
+                        activeOpacity={0.8}
+                      >
+                        <Trash2 size={13} color={theme.colors.danger} />
+                        <Text style={[styles.logoBtnText, { color: theme.colors.danger }]}>Remove</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              </View>
+
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.modalBtnCancel]}
@@ -506,6 +670,13 @@ export default function SettingsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Signature Pad Drawing Modal */}
+      <SignaturePadModal
+        visible={signaturePadVisible}
+        onClose={() => setSignaturePadVisible(false)}
+        onSave={(data) => setTempSignatureUri(data)}
+      />
     </ScrollView>
   );
 }
@@ -786,6 +957,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: theme.colors.text,
+  },
+  signaturePickerSection: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+  },
+  signaturePreviewWrapper: {
+    width: '90%',
+    height: 70,
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorderHighlight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  signatureSvgWrapper: {
+    width: '100%',
+    height: '100%',
+    padding: 4,
+  },
+  signaturePreviewImage: {
+    width: '90%',
+    height: 60,
+  },
+  signaturePlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  signatureActionButtons: {
+    flexDirection: 'row',
+    gap: 8,
   },
   modalInputGroup: {
     marginBottom: theme.spacing.md,

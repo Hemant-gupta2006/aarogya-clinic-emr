@@ -83,10 +83,10 @@ function NavigationGuard() {
         }}
       />
       <Stack.Screen
-        name="visits/[id]"
+        name="visits/[id]/edit"
         options={{
           headerShown: true,
-          title: 'Consultation Note & Rx',
+          title: 'Edit Consultation Record',
         }}
       />
       <Stack.Screen

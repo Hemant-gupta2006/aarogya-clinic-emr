@@ -72,6 +72,8 @@ function buildPrescriptionPdfString(data: {
   report?: string | null;
   charges?: string | null;
   photo?: { binary: string; width: number; height: number } | null;
+  signatureImage?: { binary: string; width: number; height: number } | null;
+  signatureVector?: { width: number; height: number; paths: Array<Array<{ x: number; y: number }>> } | null;
 }): string {
   const contentOps: string[] = [];
 
@@ -208,7 +210,30 @@ function buildPrescriptionPdfString(data: {
     currentY -= 18;
   }
 
-  // Doctor Signature Block
+  // Doctor Signature Block (above signature line at 400..540, y 90)
+  if (data.signatureImage) {
+    contentOps.push('q\n100 0 0 32 410 94 cm\n/ImSig Do\nQ');
+  } else if (data.signatureVector && data.signatureVector.paths.length > 0) {
+    const origW = data.signatureVector.width || 320;
+    const origH = data.signatureVector.height || 160;
+    const scaleX = 120 / origW;
+    const scaleY = 32 / origH;
+    contentOps.push('0.059 0.090 0.165 RG 1.5 w 1 J 1 j');
+    for (const pList of data.signatureVector.paths) {
+      if (pList.length > 0) {
+        const p0X = (410 + pList[0].x * scaleX).toFixed(2);
+        const p0Y = (126 - pList[0].y * scaleY).toFixed(2);
+        contentOps.push(`${p0X} ${p0Y} m`);
+        for (let k = 1; k < pList.length; k++) {
+          const pkX = (410 + pList[k].x * scaleX).toFixed(2);
+          const pkY = (126 - pList[k].y * scaleY).toFixed(2);
+          contentOps.push(`${pkX} ${pkY} l`);
+        }
+        contentOps.push('S');
+      }
+    }
+  }
+
   contentOps.push(`0.059 0.090 0.165 RG 1 w 400 90 m 540 90 l S`);
   contentOps.push(`BT /F1 9.5 Tf 0.059 0.090 0.165 rg 400 76 Td (${escapePdfText(data.doctorName)}) Tj ET`);
   contentOps.push('BT /F3 8 Tf 0.392 0.455 0.545 rg 400 64 Td (Signature & Clinic Stamp) Tj ET');
@@ -219,9 +244,22 @@ function buildPrescriptionPdfString(data: {
   const streamContent = contentOps.join('\n');
   const streamLength = getUtf8ByteLength(streamContent);
 
-  const hasPhoto = !!data.photo;
-  const pageResources = hasPhoto
-    ? `/Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R >> /XObject << /Im1 8 0 R >> >>`
+  const xObjectMap: string[] = [];
+  let nextObjNum = 8;
+  let photoObjNum = 0;
+  let sigObjNum = 0;
+
+  if (data.photo) {
+    photoObjNum = nextObjNum++;
+    xObjectMap.push(`/Im1 ${photoObjNum} 0 R`);
+  }
+  if (data.signatureImage) {
+    sigObjNum = nextObjNum++;
+    xObjectMap.push(`/ImSig ${sigObjNum} 0 R`);
+  }
+
+  const pageResources = xObjectMap.length > 0
+    ? `/Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R >> /XObject << ${xObjectMap.join(' ')} >> >>`
     : `/Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R >> >>`;
 
   const objects: string[] = [
@@ -234,12 +272,38 @@ function buildPrescriptionPdfString(data: {
     `7 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>\nendobj\n`,
   ];
 
-  if (hasPhoto && data.photo) {
+  if (data.photo) {
     const photoStreamLength = data.photo.binary.length;
     objects.push(
-      `8 0 obj\n<< /Type /XObject /Subtype /Image /Width ${data.photo.width} /Height ${data.photo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${photoStreamLength} >>\nstream\n${data.photo.binary}\nendstream\nendobj\n`
+      `${photoObjNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${data.photo.width} /Height ${data.photo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${photoStreamLength} >>\nstream\n${data.photo.binary}\nendstream\nendobj\n`
     );
   }
+
+  if (data.signatureImage) {
+    const sigStreamLength = data.signatureImage.binary.length;
+    objects.push(
+      `${sigObjNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${data.signatureImage.width} /Height ${data.signatureImage.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${sigStreamLength} >>\nstream\n${data.signatureImage.binary}\nendstream\nendobj\n`
+    );
+  }
+
+  let body = '%PDF-1.4\n';
+  const offsets = [0];
+
+  for (let i = 0; i < objects.length; i++) {
+    offsets.push(getUtf8ByteLength(body));
+    body += objects[i];
+  }
+
+  const startXref = getUtf8ByteLength(body);
+  let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let i = 1; i <= objects.length; i++) {
+    xref += offsets[i].toString().padStart(10, '0') + ' 00000 n \n';
+  }
+
+  const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${startXref}\n%%EOF\n`;
+
+  return body + xref + trailer;
+}
 
   let body = '%PDF-1.4\n';
   const offsets = [0];
@@ -393,9 +457,39 @@ export async function generateAndSharePrescriptionPdf(
         const dims = getJpegDimensions(binary);
         photoData = { binary, width: dims.width, height: dims.height };
       }
-    } catch (photoErr) {
-      console.warn('Patient photo could not be attached to PDF:', photoErr);
-      photoData = null;
+  // Load doctor signature if present
+  let signatureImageData: { binary: string; width: number; height: number } | null = null;
+  let signatureVectorData: { width: number; height: number; paths: Array<Array<{ x: number; y: number }>> } | null = null;
+
+  if (settings.doctor_signature) {
+    if (settings.doctor_signature.startsWith('draw:')) {
+      try {
+        const parsed = JSON.parse(settings.doctor_signature.substring(5));
+        if (parsed.paths && parsed.paths.length > 0) {
+          signatureVectorData = {
+            width: parsed.width || 320,
+            height: parsed.height || 160,
+            paths: parsed.paths,
+          };
+        }
+      } catch (err) {
+        console.warn('Vector signature parse error for PDF:', err);
+      }
+    } else {
+      try {
+        const absUri = getAbsolutePhotoUri(settings.doctor_signature);
+        const info = await FileSystem.getInfoAsync(absUri);
+        if (info.exists) {
+          const b64 = await FileSystem.readAsStringAsync(absUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          const binary = base64ToBinaryString(b64);
+          const dims = getJpegDimensions(binary);
+          signatureImageData = { binary, width: dims.width, height: dims.height };
+        }
+      } catch (sigErr) {
+        console.warn('Doctor signature image could not be attached to PDF:', sigErr);
+      }
     }
   }
 
@@ -419,6 +513,8 @@ export async function generateAndSharePrescriptionPdf(
     report: visit.report,
     charges: visit.charges,
     photo: photoData,
+    signatureImage: signatureImageData,
+    signatureVector: signatureVectorData,
   });
 
   const exportDir = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}prescriptions/`;
