@@ -99,6 +99,9 @@ export async function saveClinicLogo(sourceUri: string): Promise<string> {
     to: destinationUri,
   });
 
+  return relativePath;
+}
+
 /**
  * Saves a doctor signature image to local private storage.
  */
