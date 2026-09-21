@@ -2,8 +2,6 @@
 
 <div align="center">
 
-![Aarogya Clinic EMR Banner](https://raw.githubusercontent.com/Hemant-gupta2006/aarogya-clinic-emr/main/assets/icon.png)
-
 ### **Next-Generation, Offline-First Electronic Medical Records (EMR) for Solo Practitioners & Outpatient Clinics**
 
 [![React Native](https://img.shields.io/badge/React%20Native-0.86.2-blue.svg?logo=react&logoColor=white)](https://reactnative.dev/)
