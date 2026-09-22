@@ -3,6 +3,15 @@
 <div align="center">
 
 ### **Next-Generation, Offline-First Electronic Medical Records (EMR) for Solo Practitioners & Outpatient Clinics**
+---
+
+### 📱 Download APK
+
+**[⬇️ Download / Install Aarogya Clinic EMR APK](https://expo.dev/accounts/hemantgupta1510/projects/aarogya-clinic-emr/builds/c5c88f36-b233-45d7-8f84-dbf32d04b637)**
+
+> **Android:** Open the link above to access the standalone APK build and install it directly on an Android device.
+
+---
 
 [![React Native](https://img.shields.io/badge/React%20Native-0.86.2-blue.svg?logo=react&logoColor=white)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo%20SDK-57.0.15-000020.svg?logo=expo&logoColor=white)](https://expo.dev/)
